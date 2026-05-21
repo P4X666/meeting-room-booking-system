@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -7,9 +8,14 @@ import { User } from './user/entities/user.entity';
 import { Role } from './user/entities/role.entity';
 import { Permission } from './user/entities/permission.entity';
 import { RedisModule } from './redis/redis.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: '127.0.0.1',
@@ -24,6 +30,7 @@ import { RedisModule } from './redis/redis.module';
     }),
     UserModule,
     RedisModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],
