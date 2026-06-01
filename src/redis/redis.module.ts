@@ -11,10 +11,10 @@ import { createClient } from 'redis';
       async useFactory() {
         const client = createClient({
           socket: {
-            host: '127.0.0.1',
-            port: 6379,
+            host: process.env.REDIS_HOST,
+            port: Number(process.env.REDIS_PORT),
           },
-          database: 1,
+          database: Number(process.env.REDIS_DB),
         });
         await client.connect();
         return client;
