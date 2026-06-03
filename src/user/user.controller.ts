@@ -1,10 +1,23 @@
-import { Body, Controller, Get, Inject, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  HttpException,
+  Inject,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { EmailService } from 'src/email/email.service';
 import { RedisService } from 'src/redis/redis.service';
 import { LoginUserDto } from './dto/login-user.dto';
 import { RemoveUserDto } from './dto/remove-user.dto';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { User } from './entities/user.entity';
+import { generateAccessToken } from '@/utils/user';
 
 @Controller('user')
 export class UserController {
@@ -18,6 +31,12 @@ export class UserController {
 
   @Inject(RedisService)
   private redisService: RedisService;
+
+  @Inject(JwtService)
+  private jwtService: JwtService;
+
+  @Inject(ConfigService)
+  private configService: ConfigService;
 
   @Get('register-captcha')
   async captcha(@Query('address') address: string) {
@@ -42,12 +61,26 @@ export class UserController {
   @Post('login')
   async userLogin(@Body() loginUser: LoginUserDto) {
     const user = await this.userService.login(loginUser, false);
+    const { access_token, refresh_token } = generateAccessToken(
+      user.userInfo,
+      this.configService,
+      this.jwtService,
+    );
+    user.accessToken = access_token;
+    user.refreshToken = refresh_token;
     return user;
   }
 
   @Post('admin/login')
   async adminLogin(@Body() loginUser: LoginUserDto) {
     const user = await this.userService.login(loginUser, true);
+    const { access_token, refresh_token } = generateAccessToken(
+      user.userInfo,
+      this.configService,
+      this.jwtService,
+    );
+    user.accessToken = access_token;
+    user.refreshToken = refresh_token;
     return user;
   }
   @Post('remove')
@@ -57,5 +90,51 @@ export class UserController {
       deleteUserDto.password,
     );
     return '删除成功';
+  }
+  @Get('refresh')
+  async refresh(@Query('refreshToken') refreshToken: string) {
+    try {
+      const data = this.jwtService.verify<{ userId: User['id'] }>(refreshToken);
+
+      const user = await this.userService.findUserById(data.userId, false);
+      const { access_token, refresh_token } = generateAccessToken(
+        user,
+        this.configService,
+        this.jwtService,
+      );
+      return {
+        access_token,
+        refresh_token,
+      };
+    } catch {
+      throw new HttpException(
+        'token 已失效，请重新登录',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
+  @Get('admin/refresh')
+  async adminRefresh(@Query('refreshToken') refreshToken: string) {
+    try {
+      const data = this.jwtService.verify<{ userId: User['id'] }>(refreshToken);
+
+      const user = await this.userService.findUserById(data.userId, true);
+
+      const { access_token, refresh_token } = generateAccessToken(
+        user,
+        this.configService,
+        this.jwtService,
+      );
+
+      return {
+        access_token,
+        refresh_token,
+      };
+    } catch {
+      throw new HttpException(
+        'token 已失效，请重新登录',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
   }
 }

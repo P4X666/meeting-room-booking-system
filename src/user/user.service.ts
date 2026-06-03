@@ -16,6 +16,7 @@ import { Permission } from './entities/permission.entity';
 import { RedisService } from 'src/redis/redis.service';
 import { LoginUserDto } from './dto/login-user.dto';
 import { LoginUserVo } from './vo/login-user.vo';
+import { getPermissions } from '@/utils/user';
 
 @Injectable()
 export class UserService {
@@ -127,16 +128,7 @@ export class UserService {
     }
 
     const userVo = new LoginUserVo();
-    // 一个用户可能拥有多个角色，而不同角色可能包含 相同的权限 。例如：
-    //   - 管理员角色 ：拥有权限 A、B、C
-    //   - 编辑者角色 ：拥有权限 A、D
-    const permissionMap = new Map<string, Permission>();
-    user.roles.forEach((role) => {
-      role.permissions.forEach((permission) => {
-        permissionMap.set(permission.code, permission);
-      });
-    });
-    const permissions = Array.from(permissionMap.values());
+    const permissions = getPermissions(user);
     userVo.userInfo = {
       id: user.id,
       username: user.username,
@@ -171,5 +163,33 @@ export class UserService {
     await this.userRepository.remove(currentUser);
     // 清理相关缓存
     await this.redisService.del(`captcha_${currentUser.email}`);
+  }
+
+  async findUserById(userId: number, isAdmin: boolean) {
+    const user = await this.userRepository.findOne({
+      where: {
+        id: userId,
+        isAdmin,
+      },
+      relations: {
+        roles: {
+          permissions: true,
+        },
+      },
+    });
+
+    if (!user) {
+      throw new HttpException('用户不存在', HttpStatus.BAD_REQUEST);
+    }
+
+    const permissions = getPermissions(user);
+
+    return {
+      id: user.id,
+      username: user.username,
+      isAdmin: user.isAdmin,
+      roles: user.roles.map((item) => item.name),
+      permissions,
+    };
   }
 }
