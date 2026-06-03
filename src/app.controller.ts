@@ -1,5 +1,6 @@
-import { Controller, Get, SetMetadata } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
+import { RequireLogin, RequirePermission } from './decorator';
 
 @Controller()
 export class AppController {
@@ -10,7 +11,8 @@ export class AppController {
     return this.appService.getHello();
   }
   @Get('aaa')
-  @SetMetadata('require-login', true)
+  @RequireLogin()
+  @RequirePermission('ddd')
   aaa() {
     return 'aaa';
   }
