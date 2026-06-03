@@ -73,7 +73,9 @@ export class User {
   @UpdateDateColumn()
   updateTime: Date;
 
-  @ManyToMany(() => Role)
+  @ManyToMany(() => Role, {
+    cascade: true,
+  })
   @JoinTable({
     name: 'user_roles',
   })

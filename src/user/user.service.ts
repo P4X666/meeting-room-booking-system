@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { md5 } from 'src/utils';
@@ -151,5 +152,24 @@ export class UserService {
     };
 
     return userVo;
+  }
+
+  async removeUser(username: string, password: string) {
+    const currentUser = await this.userRepository.findOne({
+      where: {
+        username,
+        password: md5(password),
+      },
+      relations: {
+        roles: true,
+      },
+    });
+    if (!currentUser) {
+      throw new NotFoundException('用户不存在');
+    }
+    // 硬删除（会自动级联删除 user_roles 记录）
+    await this.userRepository.remove(currentUser);
+    // 清理相关缓存
+    await this.redisService.del(`captcha_${currentUser.email}`);
   }
 }

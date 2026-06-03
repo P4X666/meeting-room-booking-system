@@ -4,6 +4,7 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { EmailService } from 'src/email/email.service';
 import { RedisService } from 'src/redis/redis.service';
 import { LoginUserDto } from './dto/login-user.dto';
+import { RemoveUserDto } from './dto/remove-user.dto';
 
 @Controller('user')
 export class UserController {
@@ -48,5 +49,13 @@ export class UserController {
   async adminLogin(@Body() loginUser: LoginUserDto) {
     const user = await this.userService.login(loginUser, true);
     return user;
+  }
+  @Post('remove')
+  async deleteUser(@Body() deleteUserDto: RemoveUserDto) {
+    await this.userService.removeUser(
+      deleteUserDto.username,
+      deleteUserDto.password,
+    );
+    return '删除成功';
   }
 }
