@@ -2,8 +2,7 @@ import {
   Body,
   Controller,
   Get,
-  HttpStatus,
-  HttpException,
+  UnauthorizedException,
   Inject,
   Post,
   Query,
@@ -107,10 +106,7 @@ export class UserController {
         refresh_token,
       };
     } catch {
-      throw new HttpException(
-        'token 已失效，请重新登录',
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new UnauthorizedException('token 已失效，请重新登录');
     }
   }
   @Get('admin/refresh')
@@ -131,10 +127,7 @@ export class UserController {
         refresh_token,
       };
     } catch {
-      throw new HttpException(
-        'token 已失效，请重新登录',
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new UnauthorizedException('token 已失效，请重新登录');
     }
   }
 }

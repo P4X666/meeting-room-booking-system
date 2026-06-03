@@ -1,6 +1,5 @@
 import {
-  HttpException,
-  HttpStatus,
+  BadRequestException,
   Inject,
   Injectable,
   Logger,
@@ -36,11 +35,11 @@ export class UserService {
     const captcha = await this.redisService.get(`captcha_${user.email}`);
 
     if (!captcha) {
-      throw new HttpException('验证码已失效', HttpStatus.BAD_REQUEST);
+      throw new BadRequestException('验证码已失效');
     }
 
     if (user.captcha !== captcha) {
-      throw new HttpException('验证码不正确', HttpStatus.BAD_REQUEST);
+      throw new BadRequestException('验证码不正确');
     }
 
     const foundUser = await this.userRepository.findOneBy({
@@ -48,7 +47,7 @@ export class UserService {
     });
 
     if (foundUser) {
-      throw new HttpException('用户已存在', HttpStatus.BAD_REQUEST);
+      throw new BadRequestException('用户已存在');
     }
 
     const newUser = new User();
@@ -120,11 +119,11 @@ export class UserService {
     });
 
     if (!user) {
-      throw new HttpException('用户不存在', HttpStatus.BAD_REQUEST);
+      throw new NotFoundException('用户不存在');
     }
 
     if (user.password !== md5(loginUserDto.password)) {
-      throw new HttpException('密码错误', HttpStatus.BAD_REQUEST);
+      throw new BadRequestException('密码错误');
     }
 
     const userVo = new LoginUserVo();
@@ -179,7 +178,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new HttpException('用户不存在', HttpStatus.BAD_REQUEST);
+      throw new NotFoundException('用户不存在');
     }
 
     const permissions = getPermissions(user);
