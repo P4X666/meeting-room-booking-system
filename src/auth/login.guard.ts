@@ -63,8 +63,11 @@ export class LoginGuard implements CanActivate {
         permissions: data.permissions,
       };
       return true;
-    } catch {
-      throw new UnauthorizedException('token 失效，请重新登录');
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        throw new UnauthorizedException('登录已过期');
+      }
+      throw new UnauthorizedException('请先登录');
     }
   }
 }
