@@ -16,6 +16,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { LoginUserDto } from './dto/login-user.dto';
 import { LoginUserVo } from './vo/login-user.vo';
 import { getPermissions } from '@/utils/user';
+import { UserDetailVo } from './vo/user-info.vo';
 
 @Injectable()
 export class UserService {
@@ -190,5 +191,29 @@ export class UserService {
       roles: user.roles.map((item) => item.name),
       permissions,
     };
+  }
+  /**
+   * 获取用户详情
+   * @param userId 用户ID
+   */
+  async findUserDetailById(userId: number) {
+    const user = await this.userRepository.findOne({
+      where: {
+        id: userId,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+    const userVo = new UserDetailVo();
+    userVo.id = user.id;
+    userVo.username = user.username;
+    userVo.nickName = user.nickName;
+    userVo.email = user.email;
+    userVo.headPic = user.headPic;
+    userVo.phoneNumber = user.phoneNumber;
+    userVo.isFrozen = user.isFrozen;
+    userVo.createTime = user.createTime;
+    return userVo;
   }
 }

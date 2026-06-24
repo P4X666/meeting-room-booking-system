@@ -17,6 +17,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { User } from './entities/user.entity';
 import { generateAccessToken } from '@/utils/user';
+import { RequireLogin, UserInfo } from '@/decorator';
 
 @Controller('user')
 export class UserController {
@@ -129,5 +130,11 @@ export class UserController {
     } catch {
       throw new UnauthorizedException('token 已失效，请重新登录');
     }
+  }
+
+  @Get('info')
+  @RequireLogin()
+  async info(@UserInfo('userId') userId: number) {
+    return await this.userService.findUserDetailById(userId);
   }
 }
