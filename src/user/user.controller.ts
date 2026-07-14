@@ -1,27 +1,31 @@
+import { UPDATE_PASSWORD_CAPTCHA_KEY, UPDATE_USER_CAPTCHA_KEY } from '@/constant/user';
+import { RequireLogin, UserInfo } from '@/decorator';
+import { generateAccessToken } from '@/utils/user';
 import {
   Body,
   Controller,
   Get,
-  UnauthorizedException,
   Inject,
   Post,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
-import { UserService } from './user.service';
-import { RegisterUserDto } from './dto/register-user.dto';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { EmailService } from 'src/email/email.service';
 import { RedisService } from 'src/redis/redis.service';
 import { LoginUserDto } from './dto/login-user.dto';
+import { RegisterUserDto } from './dto/register-user.dto';
 import { RemoveUserDto } from './dto/remove-user.dto';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
+import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
-import { generateAccessToken } from '@/utils/user';
-import { RequireLogin, UserInfo } from '@/decorator';
+import { UserService } from './user.service';
+import { UserDetailVo } from './vo/user-info.vo';
 
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
   @Post('register')
   async register(@Body() registerUser: RegisterUserDto) {
     return await this.userService.register(registerUser);
@@ -135,6 +139,58 @@ export class UserController {
   @Get('info')
   @RequireLogin()
   async info(@UserInfo('userId') userId: number) {
-    return await this.userService.findUserDetailById(userId);
+    const user = await this.userService.findUserDetailById(userId);
+    const userVo = new UserDetailVo();
+    userVo.id = user.id;
+    userVo.username = user.username;
+    userVo.nickName = user.nickName;
+    userVo.email = user.email;
+    userVo.headPic = user.headPic;
+    userVo.phoneNumber = user.phoneNumber;
+    userVo.isFrozen = user.isFrozen;
+    userVo.createTime = user.createTime;
+
+    return userVo;
   }
+
+  @Post(['update_password', 'admin/update_password'])
+  @RequireLogin()
+  async updatePassword(@UserInfo('userId') userId: number, @Body() passwordDto: UpdateUserPasswordDto) {
+    return await this.userService.updatePassword(userId, passwordDto);
+  }
+
+  @Get('update_password/captcha')
+  async updatePasswordCaptcha(@Query('address') address: string) {
+    const code = Math.random().toString().slice(2, 8);
+
+    await this.redisService.set(`${UPDATE_PASSWORD_CAPTCHA_KEY}${address}`, code, 10 * 60);
+
+    await this.emailService.sendMail({
+      to: address,
+      subject: '更改密码验证码',
+      html: `<p>你的更改密码验证码是 ${code}</p>`
+    });
+    return '发送成功';
+  }
+
+  @Post(['update', 'admin/update'])
+  @RequireLogin()
+  async update(@UserInfo('userId') userId: number, @Body() updateUserDto: UpdateUserDto) {
+    return await this.userService.update(userId, updateUserDto);
+  }
+
+  @Get('update/captcha')
+  async updateCaptcha(@Query('address') address: string) {
+    const code = Math.random().toString().slice(2, 8);
+
+    await this.redisService.set(`${UPDATE_USER_CAPTCHA_KEY}${address}`, code, 10 * 60);
+
+    await this.emailService.sendMail({
+      to: address,
+      subject: '更改用户信息验证码',
+      html: `<p>你的验证码是 ${code}</p>`
+    });
+    return '发送成功';
+  }
+
 }

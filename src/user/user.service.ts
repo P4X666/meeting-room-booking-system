@@ -1,3 +1,5 @@
+import { UPDATE_PASSWORD_CAPTCHA_KEY } from '@/constant/user';
+import { getPermissions } from '@/utils/user';
 import {
   BadRequestException,
   Inject,
@@ -6,17 +8,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { RedisService } from 'src/redis/redis.service';
 import { md5 } from 'src/utils';
 import { Repository } from 'typeorm';
-import { RegisterUserDto } from './dto/register-user.dto';
-import { User } from './entities/user.entity';
-import { Role } from './entities/role.entity';
-import { Permission } from './entities/permission.entity';
-import { RedisService } from 'src/redis/redis.service';
 import { LoginUserDto } from './dto/login-user.dto';
+import { RegisterUserDto } from './dto/register-user.dto';
+import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { Permission } from './entities/permission.entity';
+import { Role } from './entities/role.entity';
+import { User } from './entities/user.entity';
 import { LoginUserVo } from './vo/login-user.vo';
-import { getPermissions } from '@/utils/user';
-import { UserDetailVo } from './vo/user-info.vo';
 
 @Injectable()
 export class UserService {
@@ -205,15 +207,72 @@ export class UserService {
     if (!user) {
       throw new NotFoundException('用户不存在');
     }
-    const userVo = new UserDetailVo();
-    userVo.id = user.id;
-    userVo.username = user.username;
-    userVo.nickName = user.nickName;
-    userVo.email = user.email;
-    userVo.headPic = user.headPic;
-    userVo.phoneNumber = user.phoneNumber;
-    userVo.isFrozen = user.isFrozen;
-    userVo.createTime = user.createTime;
-    return userVo;
+    return user;
   }
+
+  async updatePassword(userId: number, passwordDto: UpdateUserPasswordDto) {
+    const captcha = await this.redisService.get(`${UPDATE_PASSWORD_CAPTCHA_KEY}${passwordDto.email}`);
+
+    if (!captcha) {
+      throw new BadRequestException('验证码已失效');
+    }
+
+    if (passwordDto.captcha !== captcha) {
+      throw new BadRequestException('验证码不正确');
+    }
+
+    const foundUser = await this.userRepository.findOneBy({
+      id: userId
+    });
+
+    if (!foundUser) {
+      throw new NotFoundException('用户不存在');
+    }
+
+    foundUser.password = md5(passwordDto.password);
+
+    try {
+      await this.userRepository.save(foundUser);
+      return '密码修改成功';
+    } catch (e) {
+      this.logger.error(e, UserService);
+      return '密码修改失败';
+    }
+  }
+
+  async update(userId: number, updateUserDto: UpdateUserDto) {
+    const captcha = await this.redisService.get(`update_user_captcha_${updateUserDto.email}`);
+
+    if(!captcha) {
+        throw new BadRequestException('验证码已失效');
+    }
+
+    if(updateUserDto.captcha !== captcha) {
+        throw new BadRequestException('验证码不正确');
+    }
+
+    const foundUser = await this.userRepository.findOneBy({
+      id: userId
+    });
+
+    if(!foundUser) {
+        throw new NotFoundException('用户不存在');
+    }
+    
+    if(updateUserDto.nickName) {
+        foundUser.nickName = updateUserDto.nickName;
+    }
+    if(updateUserDto.headPic) {
+        foundUser.headPic = updateUserDto.headPic;
+    }
+
+    try {
+      await this.userRepository.save(foundUser);
+      return '用户信息修改成功';
+    } catch(e) {
+      this.logger.error(e, UserService);
+      return '用户信息修改成功';
+    }
+}
+
 }
