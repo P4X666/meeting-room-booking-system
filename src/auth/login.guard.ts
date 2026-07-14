@@ -9,20 +9,6 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { Observable } from 'rxjs';
-import { Permission } from '@/user/entities/permission.entity';
-
-interface JwtUserData {
-  userId: number;
-  username: string;
-  roles: string[];
-  permissions: Permission[];
-}
-
-declare module 'express' {
-  interface Request {
-    user: JwtUserData;
-  }
-}
 
 @Injectable()
 export class LoginGuard implements CanActivate {
@@ -54,14 +40,8 @@ export class LoginGuard implements CanActivate {
 
     try {
       const token = authorization.split(' ')[1];
-      const data = this.jwtService.verify<JwtUserData>(token);
-
-      request.user = {
-        userId: data.userId,
-        username: data.username,
-        roles: data.roles,
-        permissions: data.permissions,
-      };
+      const data = this.jwtService.verify<NonNullable<Express.Request['user']>>(token);
+      request.user = data;
       return true;
     } catch (error) {
       if (error.name === 'TokenExpiredError') {

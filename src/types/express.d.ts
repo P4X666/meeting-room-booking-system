@@ -1,9 +1,14 @@
-import { LoginUserVo } from '@/user/vo/login-user.vo';
+import { Permission } from '@/user/entities/permission.entity';
 
 declare global {
   namespace Express {
     interface Request {
-      user?: LoginUserVo;
+      user?: {
+        userId: number;
+        username: string;
+        roles: string[];
+        permissions: Permission[];
+      };
     }
   }
 }
