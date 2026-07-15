@@ -10,7 +10,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { RedisService } from 'src/redis/redis.service';
 import { md5 } from 'src/utils';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
 import { LoginUserDto } from './dto/login-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
@@ -292,7 +292,7 @@ export class UserService {
   async findUsersByPage(pageNo: number, pageSize: number, username?: string, nickName?: string, email?: string) {
     const skipCount = (pageNo - 1) * pageSize;
 
-    const condition: Record<string, any> = {};
+    const condition: FindOptionsWhere<User> = {};
     if (username) {
       condition.username = username;
     }

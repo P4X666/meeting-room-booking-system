@@ -26,6 +26,7 @@ import { User } from './entities/user.entity';
 import { UserService } from './user.service';
 import { RefreshTokenVo } from './vo/refresh-token.vo';
 import { UserDetailVo } from './vo/user-info.vo';
+import { UserListVo } from './vo/user-list.vo';
 
 @Controller('user')
 export class UserController {
@@ -92,7 +93,7 @@ export class UserController {
     user.refreshToken = refresh_token;
     return user;
   }
-  @ApiBearerAuth()
+
   @Post('remove')
   async deleteUser(@Body() deleteUserDto: RemoveUserDto) {
     await this.userService.removeUser(
@@ -170,7 +171,6 @@ export class UserController {
     return await this.userService.updatePassword(userId, passwordDto);
   }
 
-  @ApiBearerAuth()
   @Get('update_password/captcha')
   async updatePasswordCaptcha(@Query('address') address: string) {
     const code = Math.random().toString().slice(2, 8);
@@ -192,7 +192,6 @@ export class UserController {
     return await this.userService.update(userId, updateUserDto);
   }
 
-  @ApiBearerAuth()
   @Get('update/captcha')
   async updateCaptcha(@Query('address') address: string) {
     const code = Math.random().toString().slice(2, 8);
@@ -211,16 +210,20 @@ export class UserController {
    */
   @ApiBearerAuth()
   @Post('freeze')
+  @RequireLogin()
   async freeze(@Body() body: FreezeUserDto) {
     await this.userService.freezeUserById(body.id);
     return 'success';
   }
 
-  @ApiBearerAuth()
   @Get('list')
   async list(@Query() query: UserListQueryDto) {
     const { pageNo = 1, pageSize = 10, username = '', nickName = '', email = '' } = query;
-    return await this.userService.findUsersByPage(pageNo, pageSize, username, nickName, email);
+    const vo = await this.userService.findUsersByPage(pageNo, pageSize, username, nickName, email);
+    const userListVo = new UserListVo();
+    userListVo.list = vo.users;
+    userListVo.totalCount = vo.totalCount;
+    return userListVo;
   }
 
 }
