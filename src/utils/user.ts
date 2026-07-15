@@ -1,6 +1,7 @@
 import { Permission } from '@/user/entities/permission.entity';
 import { User } from '@/user/entities/user.entity';
 import type { UserService } from '@/user/user.service';
+import { BadRequestException, ParseIntPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
@@ -48,3 +49,11 @@ export const getPermissions = (user: User) => {
   });
   return Array.from(permissionMap.values());
 };
+
+export function generateParseIntPipe(name: unknown) {
+    return new ParseIntPipe({
+      exceptionFactory() {
+        throw new BadRequestException(name + ' 应该传数字');
+      } 
+    })
+}

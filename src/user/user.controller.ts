@@ -1,19 +1,21 @@
 import { UPDATE_PASSWORD_CAPTCHA_KEY, UPDATE_USER_CAPTCHA_KEY } from '@/constant/user';
 import { RequireLogin, UserInfo } from '@/decorator';
-import { generateAccessToken } from '@/utils/user';
+import { generateAccessToken, generateParseIntPipe } from '@/utils/user';
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Get,
   Inject,
   Post,
   Query,
-  UnauthorizedException,
+  UnauthorizedException
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from 'src/email/email.service';
 import { RedisService } from 'src/redis/redis.service';
+import { FreezeUserDto } from './dto/freeze-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { RemoveUserDto } from './dto/remove-user.dto';
@@ -191,6 +193,25 @@ export class UserController {
       html: `<p>你的验证码是 ${code}</p>`
     });
     return '发送成功';
+  }
+  /**
+   * 冻结用户
+   */
+  @Post('freeze')
+  async freeze(@Body() body: FreezeUserDto) {
+    await this.userService.freezeUserById(body.id);
+    return 'success';
+  }
+
+  @Get('list')
+  async list(
+    @Query('pageNo', new DefaultValuePipe(1), generateParseIntPipe('pageNo')) pageNo: number, 
+    @Query('pageSize', new DefaultValuePipe(10), generateParseIntPipe('pageSize')) pageSize: number,
+    @Query('username') username: string,
+    @Query('nickName') nickName: string,
+    @Query('email') email: string
+  ) {
+    return await this.userService.findUsersByPage(pageNo, pageSize, username, nickName, email);
   }
 
 }

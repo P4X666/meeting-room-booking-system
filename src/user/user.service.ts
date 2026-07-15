@@ -1,4 +1,4 @@
-import { UPDATE_PASSWORD_CAPTCHA_KEY } from '@/constant/user';
+import { UPDATE_PASSWORD_CAPTCHA_KEY, UPDATE_USER_CAPTCHA_KEY } from '@/constant/user';
 import { getPermissions } from '@/utils/user';
 import {
   BadRequestException,
@@ -241,38 +241,89 @@ export class UserService {
   }
 
   async update(userId: number, updateUserDto: UpdateUserDto) {
-    const captcha = await this.redisService.get(`update_user_captcha_${updateUserDto.email}`);
+    const captcha = await this.redisService.get(`${UPDATE_USER_CAPTCHA_KEY}${updateUserDto.email}`);
 
-    if(!captcha) {
-        throw new BadRequestException('验证码已失效');
+    if (!captcha) {
+      throw new BadRequestException('验证码已失效');
     }
 
-    if(updateUserDto.captcha !== captcha) {
-        throw new BadRequestException('验证码不正确');
+    if (updateUserDto.captcha !== captcha) {
+      throw new BadRequestException('验证码不正确');
     }
 
     const foundUser = await this.userRepository.findOneBy({
       id: userId
     });
 
-    if(!foundUser) {
-        throw new NotFoundException('用户不存在');
+    if (!foundUser) {
+      throw new NotFoundException('用户不存在');
     }
-    
-    if(updateUserDto.nickName) {
-        foundUser.nickName = updateUserDto.nickName;
+
+    if (updateUserDto.nickName) {
+      foundUser.nickName = updateUserDto.nickName;
     }
-    if(updateUserDto.headPic) {
-        foundUser.headPic = updateUserDto.headPic;
+    if (updateUserDto.headPic) {
+      foundUser.headPic = updateUserDto.headPic;
     }
 
     try {
       await this.userRepository.save(foundUser);
       return '用户信息修改成功';
-    } catch(e) {
+    } catch (e) {
       this.logger.error(e, UserService);
-      return '用户信息修改成功';
+      return '用户信息修改失败';
     }
-}
+  }
+  /**
+   * 冻结用户
+   * @param id 用户ID
+   */
+  async freezeUserById(id: number) {
+    const user = await this.userRepository.findOneBy({
+      id
+    });
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+    user.isFrozen = true;
+    await this.userRepository.save(user);
+  }
+
+  async findUsersByPage(pageNo: number, pageSize: number, username: string, nickName: string, email: string) {
+    const skipCount = (pageNo - 1) * pageSize;
+
+    const condition: Record<string, any> = {};
+    if (username) {
+      condition.username = username;
+    }
+    if (nickName) {
+      condition.nickName = nickName;
+    }
+    if (email) {
+      condition.email = email;
+    }
+
+    const [users, totalCount] = await this.userRepository.findAndCount({
+      select: {
+        id: true,
+        username: true,
+        nickName: true,
+        email: true,
+        phoneNumber: true,
+        isFrozen: true,
+        headPic: true,
+        createTime: true,
+      },
+      skip: skipCount,
+      take: pageSize,
+      where: condition,
+    });
+
+    return {
+      users,
+      totalCount
+    }
+  }
+
 
 }
