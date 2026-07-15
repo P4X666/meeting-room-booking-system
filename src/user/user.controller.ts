@@ -1,11 +1,14 @@
 import { UPDATE_PASSWORD_CAPTCHA_KEY, UPDATE_USER_CAPTCHA_KEY } from '@/constant/user';
 import { RequireLogin, UserInfo } from '@/decorator';
+import { EmailService } from '@/email/email.service';
+import { RedisService } from '@/redis/redis.service';
 import { generateAccessToken, generateParseIntPipe } from '@/utils/user';
 import {
   Body,
   Controller,
   DefaultValuePipe,
   Get,
+  HttpStatus,
   Inject,
   Post,
   Query,
@@ -13,8 +16,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { EmailService } from 'src/email/email.service';
-import { RedisService } from 'src/redis/redis.service';
+import { ApiBody, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FreezeUserDto } from './dto/freeze-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -25,9 +27,24 @@ import { User } from './entities/user.entity';
 import { UserService } from './user.service';
 import { UserDetailVo } from './vo/user-info.vo';
 
+@ApiTags('用户管理模块')
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) { }
+
+  @ApiBody({
+    type: RegisterUserDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: '验证码已失效/验证码不正确/用户已存在',
+    type: String,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: '注册成功/失败',
+    type: RegisterUserDto,
+  })
   @Post('register')
   async register(@Body() registerUser: RegisterUserDto) {
     return await this.userService.register(registerUser);
@@ -44,6 +61,18 @@ export class UserController {
   @Inject(ConfigService)
   private configService: ConfigService;
 
+  @ApiQuery({
+    name: 'address',
+    type: String,
+    description: '注册邮箱',
+    required: true,
+    example: 'user@example.com',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: '发送成功',
+    type: String,
+  })
   @Get('register-captcha')
   async captcha(@Query('address') address: string) {
     const code = Math.random().toString().slice(2, 8);
@@ -205,7 +234,7 @@ export class UserController {
 
   @Get('list')
   async list(
-    @Query('pageNo', new DefaultValuePipe(1), generateParseIntPipe('pageNo')) pageNo: number, 
+    @Query('pageNo', new DefaultValuePipe(1), generateParseIntPipe('pageNo')) pageNo: number,
     @Query('pageSize', new DefaultValuePipe(10), generateParseIntPipe('pageSize')) pageSize: number,
     @Query('username') username: string,
     @Query('nickName') nickName: string,
