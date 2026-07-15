@@ -289,7 +289,7 @@ export class UserService {
     await this.userRepository.save(user);
   }
 
-  async findUsersByPage(pageNo: number, pageSize: number, username: string, nickName: string, email: string) {
+  async findUsersByPage(pageNo: number, pageSize: number, username?: string, nickName?: string, email?: string) {
     const skipCount = (pageNo - 1) * pageSize;
 
     const condition: Record<string, any> = {};

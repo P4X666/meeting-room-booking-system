@@ -2,13 +2,11 @@ import { UPDATE_PASSWORD_CAPTCHA_KEY, UPDATE_USER_CAPTCHA_KEY } from '@/constant
 import { RequireLogin, UserInfo } from '@/decorator';
 import { EmailService } from '@/email/email.service';
 import { RedisService } from '@/redis/redis.service';
-import { generateAccessToken, generateParseIntPipe } from '@/utils/user';
+import { generateAccessToken } from '@/utils/user';
 import {
   Body,
   Controller,
-  DefaultValuePipe,
   Get,
-  HttpStatus,
   Inject,
   Post,
   Query,
@@ -16,35 +14,23 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { ApiBody, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { FreezeUserDto } from './dto/freeze-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { RemoveUserDto } from './dto/remove-user.dto';
 import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UserListQueryDto } from './dto/user-list-query.dto';
 import { User } from './entities/user.entity';
 import { UserService } from './user.service';
+import { RefreshTokenVo } from './vo/refresh-token.vo';
 import { UserDetailVo } from './vo/user-info.vo';
 
-@ApiTags('用户管理模块')
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) { }
 
-  @ApiBody({
-    type: RegisterUserDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: '验证码已失效/验证码不正确/用户已存在',
-    type: String,
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: '注册成功/失败',
-    type: RegisterUserDto,
-  })
   @Post('register')
   async register(@Body() registerUser: RegisterUserDto) {
     return await this.userService.register(registerUser);
@@ -61,18 +47,6 @@ export class UserController {
   @Inject(ConfigService)
   private configService: ConfigService;
 
-  @ApiQuery({
-    name: 'address',
-    type: String,
-    description: '注册邮箱',
-    required: true,
-    example: 'user@example.com',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: '发送成功',
-    type: String,
-  })
   @Get('register-captcha')
   async captcha(@Query('address') address: string) {
     const code = Math.random().toString().slice(2, 8);
@@ -118,6 +92,7 @@ export class UserController {
     user.refreshToken = refresh_token;
     return user;
   }
+  @ApiBearerAuth()
   @Post('remove')
   async deleteUser(@Body() deleteUserDto: RemoveUserDto) {
     await this.userService.removeUser(
@@ -137,10 +112,12 @@ export class UserController {
         this.configService,
         this.jwtService,
       );
-      return {
-        access_token,
-        refresh_token,
-      };
+      const vo = new RefreshTokenVo();
+
+      vo.access_token = access_token;
+      vo.refresh_token = refresh_token;
+      return vo;
+
     } catch {
       throw new UnauthorizedException('token 已失效，请重新登录');
     }
@@ -158,15 +135,17 @@ export class UserController {
         this.jwtService,
       );
 
-      return {
-        access_token,
-        refresh_token,
-      };
+      const vo = new RefreshTokenVo();
+
+      vo.access_token = access_token;
+      vo.refresh_token = refresh_token;
+      return vo;
     } catch {
       throw new UnauthorizedException('token 已失效，请重新登录');
     }
   }
 
+  @ApiBearerAuth()
   @Get('info')
   @RequireLogin()
   async info(@UserInfo('userId') userId: number) {
@@ -184,12 +163,14 @@ export class UserController {
     return userVo;
   }
 
+  @ApiBearerAuth()
   @Post(['update_password', 'admin/update_password'])
   @RequireLogin()
   async updatePassword(@UserInfo('userId') userId: number, @Body() passwordDto: UpdateUserPasswordDto) {
     return await this.userService.updatePassword(userId, passwordDto);
   }
 
+  @ApiBearerAuth()
   @Get('update_password/captcha')
   async updatePasswordCaptcha(@Query('address') address: string) {
     const code = Math.random().toString().slice(2, 8);
@@ -204,12 +185,14 @@ export class UserController {
     return '发送成功';
   }
 
+  @ApiBearerAuth()
   @Post(['update', 'admin/update'])
   @RequireLogin()
   async update(@UserInfo('userId') userId: number, @Body() updateUserDto: UpdateUserDto) {
     return await this.userService.update(userId, updateUserDto);
   }
 
+  @ApiBearerAuth()
   @Get('update/captcha')
   async updateCaptcha(@Query('address') address: string) {
     const code = Math.random().toString().slice(2, 8);
@@ -226,20 +209,17 @@ export class UserController {
   /**
    * 冻结用户
    */
+  @ApiBearerAuth()
   @Post('freeze')
   async freeze(@Body() body: FreezeUserDto) {
     await this.userService.freezeUserById(body.id);
     return 'success';
   }
 
+  @ApiBearerAuth()
   @Get('list')
-  async list(
-    @Query('pageNo', new DefaultValuePipe(1), generateParseIntPipe('pageNo')) pageNo: number,
-    @Query('pageSize', new DefaultValuePipe(10), generateParseIntPipe('pageSize')) pageSize: number,
-    @Query('username') username: string,
-    @Query('nickName') nickName: string,
-    @Query('email') email: string
-  ) {
+  async list(@Query() query: UserListQueryDto) {
+    const { pageNo = 1, pageSize = 10, username = '', nickName = '', email = '' } = query;
     return await this.userService.findUsersByPage(pageNo, pageSize, username, nickName, email);
   }
 
