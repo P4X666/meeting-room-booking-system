@@ -16,6 +16,8 @@ async function bootstrap() {
   );
   app.useGlobalFilters(new HttpExceptionFilter());
 
+  app.enableCors();
+
   const config = new DocumentBuilder()
     .setTitle('会议室预订系统')
     .setDescription('api 接口文档')

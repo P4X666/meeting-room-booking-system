@@ -18,7 +18,6 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { Permission } from './entities/permission.entity';
 import { Role } from './entities/role.entity';
 import { User } from './entities/user.entity';
-import { LoginUserVo } from './vo/login-user.vo';
 
 @Injectable()
 export class UserService {
@@ -128,24 +127,7 @@ export class UserService {
     if (user.password !== md5(loginUserDto.password)) {
       throw new BadRequestException('密码错误');
     }
-
-    const userVo = new LoginUserVo();
-    const permissions = getPermissions(user);
-    userVo.userInfo = {
-      id: user.id,
-      username: user.username,
-      nickName: user.nickName,
-      email: user.email,
-      headPic: user.headPic,
-      phoneNumber: user.phoneNumber,
-      isFrozen: user.isFrozen,
-      isAdmin: user.isAdmin,
-      createTime: user.createTime.getTime(),
-      roles: user.roles.map((role) => role.name),
-      permissions,
-    };
-
-    return userVo;
+    return user;
   }
 
   async removeUser(username: string, password: string) {
@@ -189,6 +171,7 @@ export class UserService {
     return {
       id: user.id,
       username: user.username,
+      email: user.email,
       isAdmin: user.isAdmin,
       roles: user.roles.map((item) => item.name),
       permissions,
@@ -210,7 +193,7 @@ export class UserService {
     return user;
   }
 
-  async updatePassword(userId: number, passwordDto: UpdateUserPasswordDto) {
+  async updatePassword(passwordDto: UpdateUserPasswordDto) {
     const captcha = await this.redisService.get(`${UPDATE_PASSWORD_CAPTCHA_KEY}${passwordDto.email}`);
 
     if (!captcha) {
@@ -222,11 +205,15 @@ export class UserService {
     }
 
     const foundUser = await this.userRepository.findOneBy({
-      id: userId
+      username: passwordDto.username,
     });
 
     if (!foundUser) {
       throw new NotFoundException('用户不存在');
+    }
+
+    if(foundUser.email !== passwordDto.email) {
+      throw new BadRequestException('邮箱不正确');
     }
 
     foundUser.password = md5(passwordDto.password);

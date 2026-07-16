@@ -14,6 +14,7 @@ export const generateAccessToken = (
     {
       userId: userInfo.id,
       username: userInfo.username,
+      email: userInfo.email,
       roles: userInfo.roles,
       permissions: userInfo.permissions,
     },

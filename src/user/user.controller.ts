@@ -2,12 +2,15 @@ import { UPDATE_PASSWORD_CAPTCHA_KEY, UPDATE_USER_CAPTCHA_KEY } from '@/constant
 import { RequireLogin, UserInfo } from '@/decorator';
 import { EmailService } from '@/email/email.service';
 import { RedisService } from '@/redis/redis.service';
-import { generateAccessToken } from '@/utils/user';
+import { generateAccessToken, getPermissions } from '@/utils/user';
 import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Inject,
+  Patch,
   Post,
   Query,
   UnauthorizedException
@@ -24,6 +27,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserListQueryDto } from './dto/user-list-query.dto';
 import { User } from './entities/user.entity';
 import { UserService } from './user.service';
+import { LoginUserVo } from './vo/login-user.vo';
 import { RefreshTokenVo } from './vo/refresh-token.vo';
 import { UserDetailVo } from './vo/user-info.vo';
 import { UserListVo } from './vo/user-list.vo';
@@ -69,29 +73,60 @@ export class UserController {
   }
 
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   async userLogin(@Body() loginUser: LoginUserDto) {
     const user = await this.userService.login(loginUser, false);
+    const userVo = new LoginUserVo();
+    const permissions = getPermissions(user);
+    userVo.userInfo = {
+      id: user.id,
+      username: user.username,
+      nickName: user.nickName,
+      email: user.email,
+      headPic: user.headPic,
+      phoneNumber: user.phoneNumber,
+      isFrozen: user.isFrozen,
+      isAdmin: user.isAdmin,
+      createTime: user.createTime.getTime(),
+      roles: user.roles.map((role) => role.name),
+      permissions,
+    };
     const { access_token, refresh_token } = generateAccessToken(
-      user.userInfo,
+      userVo.userInfo,
       this.configService,
       this.jwtService,
     );
-    user.accessToken = access_token;
-    user.refreshToken = refresh_token;
-    return user;
+    userVo.accessToken = access_token;
+    userVo.refreshToken = refresh_token;
+    return userVo;
   }
 
   @Post('admin/login')
   async adminLogin(@Body() loginUser: LoginUserDto) {
     const user = await this.userService.login(loginUser, true);
+    const userVo = new LoginUserVo();
+    const permissions = getPermissions(user);
+    userVo.userInfo = {
+      id: user.id,
+      username: user.username,
+      nickName: user.nickName,
+      email: user.email,
+      headPic: user.headPic,
+      phoneNumber: user.phoneNumber,
+      isFrozen: user.isFrozen,
+      isAdmin: user.isAdmin,
+      createTime: user.createTime.getTime(),
+      roles: user.roles.map((role) => role.name),
+      permissions,
+    };
     const { access_token, refresh_token } = generateAccessToken(
-      user.userInfo,
+      userVo.userInfo,
       this.configService,
       this.jwtService,
     );
-    user.accessToken = access_token;
-    user.refreshToken = refresh_token;
-    return user;
+    userVo.accessToken = access_token;
+    userVo.refreshToken = refresh_token;
+    return userVo;
   }
 
   @Post('remove')
@@ -164,11 +199,9 @@ export class UserController {
     return userVo;
   }
 
-  @ApiBearerAuth()
-  @Post(['update_password', 'admin/update_password'])
-  @RequireLogin()
-  async updatePassword(@UserInfo('userId') userId: number, @Body() passwordDto: UpdateUserPasswordDto) {
-    return await this.userService.updatePassword(userId, passwordDto);
+  @Patch(['update_password', 'admin/update_password'])
+  async updatePassword(@Body() passwordDto: UpdateUserPasswordDto) {
+    return await this.userService.updatePassword(passwordDto);
   }
 
   @Get('update_password/captcha')
@@ -192,14 +225,16 @@ export class UserController {
     return await this.userService.update(userId, updateUserDto);
   }
 
+  @ApiBearerAuth()
+  @RequireLogin()
   @Get('update/captcha')
-  async updateCaptcha(@Query('address') address: string) {
+  async updateCaptcha(@UserInfo('email') email: string) {
     const code = Math.random().toString().slice(2, 8);
 
-    await this.redisService.set(`${UPDATE_USER_CAPTCHA_KEY}${address}`, code, 10 * 60);
+    await this.redisService.set(`${UPDATE_USER_CAPTCHA_KEY}${email}`, code, 10 * 60);
 
     await this.emailService.sendMail({
-      to: address,
+      to: email,
       subject: '更改用户信息验证码',
       html: `<p>你的验证码是 ${code}</p>`
     });
