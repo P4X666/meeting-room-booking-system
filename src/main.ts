@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { FormatResponseInterceptor } from './format-response.interceptor';
@@ -7,7 +8,12 @@ import { HttpExceptionFilter } from './http-exception.filter';
 import { InvokeRecordInterceptor } from './invoke-record.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  app.useStaticAssets('uploads', {
+    prefix: '/uploads'
+  });
+
 
   app.useGlobalPipes(new ValidationPipe());
   app.useGlobalInterceptors(

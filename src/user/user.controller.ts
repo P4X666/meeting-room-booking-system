@@ -2,8 +2,10 @@ import { UPDATE_PASSWORD_CAPTCHA_KEY, UPDATE_USER_CAPTCHA_KEY } from '@/constant
 import { RequireLogin, UserInfo } from '@/decorator';
 import { EmailService } from '@/email/email.service';
 import { RedisService } from '@/redis/redis.service';
+import { storage } from '@/utils/file-storage';
 import { generateAccessToken, getPermissions } from '@/utils/user';
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -13,11 +15,15 @@ import {
   Patch,
   Post,
   Query,
-  UnauthorizedException
+  UnauthorizedException,
+  UploadedFile,
+  UseInterceptors
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth } from '@nestjs/swagger';
+import path from 'path';
 import { FreezeUserDto } from './dto/freeze-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -259,6 +265,26 @@ export class UserController {
     userListVo.list = vo.users;
     userListVo.totalCount = vo.totalCount;
     return userListVo;
+  }
+
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file', {
+    dest: 'uploads',
+    storage,
+    limits: {
+      fileSize: 1024 * 1024 * 5,
+    },
+    fileFilter(req, file, callback) {
+      const extname = path.extname(file.originalname);
+      if (['.jpg', '.jpeg', '.png', '.gif'].includes(extname)) {
+        callback(null, true);
+      } else {
+        callback(new BadRequestException('Only jpg, jpeg, png, gif files allowed'), false);
+      }
+    },
+  }))
+  uploadFile(@UploadedFile() file: Express.Multer.File) {
+    return path.join(file.destination, file.filename).split(path.sep).join('/');
   }
 
 }
